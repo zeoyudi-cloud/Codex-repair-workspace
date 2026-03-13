@@ -1,4 +1,4 @@
-﻿# 角色存档工坊
+# 角色存档工坊
 
 本 skill 提供一个本地角色档案与记忆管理界面，用于创建角色、切换当前角色、保存私有记忆，并把角色存档留在本地。
 
@@ -10,9 +10,9 @@
 - 手动新增记忆自动写入当前本地时间到分钟
 
 ## 本地数据目录
-- `C:\Users\11520\.codex\role-archive-studio-data`
+- `$HOME/.codex/role-archive-studio-data`
 
 ## 启动界面
 ```powershell
-powershell -ExecutionPolicy Bypass -File "C:\Users\11520\.codex\skills\role-archive-studio\scripts\ensure-role-archive-url.ps1" -ForceRestart -Port 48678
+powershell -ExecutionPolicy Bypass -File "$HOME/.codex/skills/role-archive-studio/scripts/ensure-role-archive-url.ps1" -ForceRestart -Port 48678
 ```
