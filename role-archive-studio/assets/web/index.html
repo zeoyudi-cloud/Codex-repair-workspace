@@ -1,0 +1,137 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>角色存档工坊</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="page-shell page-shell-single">
+    <main class="main-panel main-panel-wide">
+      <section class="hero-card">
+        <div>
+          <p class="eyebrow">本地角色管理</p>
+          <h1 class="page-title">角色存档工坊</h1>
+          <p class="subtle">先选择建立新角色，或从现有角色中继续。</p>
+        </div>
+        <div class="hero-actions">
+          <span id="activeBadge" class="pill">当前未激活</span>
+        </div>
+      </section>
+
+      <section id="entryView" class="view-card">
+        <div class="section-heading">
+          <h2>入口</h2>
+          <span class="pill">简化流程</span>
+        </div>
+        <div class="entry-grid">
+          <button id="goCreateButton" class="entry-tile" type="button">
+            <span class="entry-title">创建新角色</span>
+            <span class="entry-copy">进入角色卡编辑页，新建一个新的人设和记忆档案。</span>
+          </button>
+          <button id="goSelectButton" class="entry-tile" type="button">
+            <span class="entry-title">选择现有角色</span>
+            <span class="entry-copy">查看已有角色的名称、性格和简介，然后激活或编辑。</span>
+          </button>
+        </div>
+      </section>
+
+      <section id="selectView" class="view-card is-hidden">
+        <div class="section-heading">
+          <h2>选择现有角色</h2>
+          <div class="hero-actions">
+            <button id="backFromSelectButton" class="ghost-button" type="button">返回入口</button>
+            <button id="fromSelectCreateButton" class="ghost-button" type="button">新建角色</button>
+          </div>
+        </div>
+        <div id="profileSummaryList" class="summary-list"></div>
+      </section>
+
+      <section id="editorView" class="view-card is-hidden">
+        <div class="section-heading">
+          <h2 id="editorTitle">创建新角色</h2>
+          <div class="hero-actions">
+            <button id="backToEntryButton" class="ghost-button" type="button">返回入口</button>
+            <button id="backToSelectButton" class="ghost-button" type="button">去选角色</button>
+          </div>
+        </div>
+
+        <section class="editor-grid">
+          <article class="editor-card">
+            <div class="section-heading">
+              <h2>角色卡</h2>
+              <span id="saveStatus" class="status">未修改</span>
+            </div>
+
+            <form id="profileForm" class="form-layout">
+              <label><span>角色名称</span><input id="name" name="name" type="text" placeholder="大乌龟"></label>
+              <label><span>角色定位</span><input id="title" name="title" type="text" placeholder="长期编程搭子"></label>
+              <label><span>简单功能简介</span><textarea id="summary" name="summary" rows="3" placeholder="例如：负责编码协作、解析需求、推进任务。"></textarea></label>
+              <div class="split-grid">
+                <label><span>角色性格预设</span><select id="personalityPreset"><option value="">请选择</option><option value="温和稳重">温和稳重</option><option value="直接果断">直接果断</option><option value="体贴陪跑">体贴陪跑</option><option value="内敛冷静">内敛冷静</option><option value="热血推进">热血推进</option><option value="幽默轻松">幽默轻松</option><option value="强控场型">强控场型</option><option value="敏锐分析型">敏锐分析型</option></select></label>
+                <label><span>角色性格自定义</span><input id="personality" name="personality" type="text" placeholder="可直接输入自己的性格描述"></label>
+              </div>
+              <div class="split-grid">
+                <label><span>说话方式预设</span><select id="voicePreset"><option value="">请选择</option><option value="中文、温和、直接">中文、温和、直接</option><option value="短句高效、先给结论">短句高效、先给结论</option><option value="像搭档一样聊">像搭档一样聊</option><option value="像项目经理一样推进">像项目经理一样推进</option><option value="先动手再解释">先动手再解释</option><option value="冷静专业、少成词">冷静专业、少成词</option><option value="带点幽默感的自然口吻">带点幽默感的自然口吻</option></select></label>
+                <label><span>说话方式自定义</span><input id="voice" name="voice" type="text" placeholder="可直接输入你想要的说话方式"></label>
+              </div>
+              <div class="split-grid">
+                <label><span>角色自带记忆</span><textarea id="memories" name="memories" rows="8" placeholder="每行一条。"></textarea></label>
+                <label><span>协作规则</span><textarea id="rules" name="rules" rows="8" placeholder="每行一条。"></textarea></label>
+              </div>
+              <label><span>补充备注</span><textarea id="notes" name="notes" rows="4" placeholder="可以写长期偏好、项目背景或私有备注。"></textarea></label>
+              <label><span>记忆重点</span><textarea id="memoryFocus" name="memoryFocus" rows="3" placeholder="填写这个角色以后更应该记住什么；首次存记忆前也会确认一次。"></textarea></label>
+            </form>
+
+            <div class="action-row">
+              <button id="saveButton" class="primary-button" type="button">保存角色</button>
+              <button id="deleteButton" class="danger-button" type="button">删除角色</button>
+            </div>
+          </article>
+
+          <article class="preview-card">
+            <div class="section-heading"><h2>提示词预览</h2><span id="activeName" class="pill">尚未激活角色</span></div>
+            <p id="activeSummary" class="subtle">保存后可以激活这个角色。</p>
+            <pre id="promptPreview" class="prompt-box">当前激活角色的提示词会显示在这里。</pre>
+            <div class="action-row">
+              <button id="activateButton" class="ghost-button" type="button">激活这个角色</button>
+              <button id="copyPromptButton" class="ghost-button" type="button">复制提示词</button>
+            </div>
+          </article>
+        </section>
+
+        <section class="memory-grid">
+          <article class="memory-card">
+            <div class="section-heading"><h2>记忆存档</h2><span id="memoryCount" class="pill">0</span></div>
+            <div class="memory-form">
+              <label><span>新增记忆条目</span><textarea id="memoryText" rows="3" placeholder="这里只保存精炼且高价值的记忆。手动添加会自动记到当前分钟。"></textarea></label>
+              <div class="split-grid compact">
+                <label><span>来源</span><select id="memorySource"><option value="manual">手动添加</option><option value="confirmed-preference">确认后的偏好</option><option value="session-summary">会话总结</option></select></label>
+                <label class="checkbox-line"><input id="memoryPinned" type="checkbox"><span>置顶这条记忆</span></label>
+              </div>
+              <button id="saveMemoryButton" class="primary-button" type="button">保存记忆</button>
+            </div>
+            <div id="memoryList" class="memory-list"></div>
+          </article>
+
+          <article class="settings-card">
+            <div class="section-heading"><h2>记忆策略</h2><span class="pill">Token 防护</span></div>
+            <div class="policy-note"><p class="policy-title">默认筛选逻辑</p><p class="subtle">只保留高稳定记忆：长期偏好、合作方式、重要已确认事实。</p><p class="subtle">不默认纳入长期记忆：角色卡设定、一次性开发过程、临时测试细节。</p></div>
+            <label><span>记录模式</span><select id="memoryMode"><option value="manual">仅手动记录</option><option value="confirm">保存前先确认</option><option value="session-summary">仅会话总结</option></select></label>
+            <label><span>会话总结条数上限</span><input id="sessionSummaryLimit" type="number" min="1" max="10" value="3"></label>
+            <button id="saveSettingsButton" class="ghost-button" type="button">保存策略</button>
+            <p class="subtle">手动添加的记忆会自动写入事件时间到“分”。自动总结的记忆优先写到“分”，不确定时退到“时”。</p>
+            <p id="settingsStatus" class="subtle">暂未修改。</p>
+            <p class="subtle mono" id="dataRoot">Loading...</p>
+          </article>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <template id="profileSummaryTemplate"><button class="summary-card" type="button"><span class="summary-name"></span><span class="summary-personality"></span><span class="summary-copy"></span></button></template>
+  <template id="memoryItemTemplate"><article class="memory-item"><div class="memory-item-top"><span class="memory-item-source"></span><button class="memory-delete ghost-button" type="button">删除</button></div><p class="memory-item-text"></p><p class="memory-item-meta"></p></article></template>
+  <script src="./app.js"></script>
+</body>
+</html>
