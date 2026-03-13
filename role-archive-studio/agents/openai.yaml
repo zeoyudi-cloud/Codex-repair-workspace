@@ -1,0 +1,5 @@
+﻿version: 1
+interface:
+  display_name: 角色存档工坊
+  short_description: 本地角色卡、私有记忆库与角色切换入口。
+  default_prompt: 读取当前激活的本地角色，按该角色继续协作，或打开本地角色管理界面来创建、切换和维护角色。
