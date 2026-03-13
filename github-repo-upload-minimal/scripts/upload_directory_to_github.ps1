@@ -6,7 +6,9 @@ param(
     [string]$Repo,
 
     [ValidateSet("public", "private")]
-    [string]$Visibility = "public"
+    [string]$Visibility = "public",
+
+    [string]$RepoSubdir = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,17 +19,41 @@ function Clear-ProxyEnv {
     }
 }
 
+function Get-WingetPath {
+    $candidates = @(
+        'winget.exe',
+        (Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps\winget.exe')
+    )
+    foreach ($candidate in $candidates) {
+        try {
+            if ($candidate -eq 'winget.exe') {
+                $null = Get-Command winget.exe -ErrorAction Stop
+                return 'winget.exe'
+            }
+            if (Test-Path $candidate) { return $candidate }
+        } catch {}
+    }
+    throw 'winget is not available on this system.'
+}
+
 function Require-CommandPath {
     param(
         [string]$Path,
         [string]$InstallId
     )
     if (-not (Test-Path $Path)) {
-        winget install --id $InstallId -e --source winget --accept-package-agreements --accept-source-agreements
+        $winget = Get-WingetPath
+        & $winget install --id $InstallId -e --source winget --accept-package-agreements --accept-source-agreements
     }
     if (-not (Test-Path $Path)) {
         throw "Missing required tool: $Path"
     }
+}
+
+function Normalize-RepoSubdir {
+    param([string]$Value)
+    if ([string]::IsNullOrWhiteSpace($Value)) { return '' }
+    return ($Value.Trim() -replace '^[\\/]+', '' -replace '[\\/]+$', '' -replace '\\', '/')
 }
 
 function Ensure-GitRepo {
@@ -59,7 +85,8 @@ function Ensure-RepoExists {
 function Upload-WithApi {
     param(
         [string]$Dir,
-        [string]$RepoName
+        [string]$RepoName,
+        [string]$TargetSubdir
     )
 
     $token = (& $gh auth token).Trim()
@@ -69,27 +96,28 @@ function Upload-WithApi {
         "User-Agent"  = "github-repo-upload-minimal"
     }
 
+    $prefix = Normalize-RepoSubdir -Value $TargetSubdir
     $files = Get-ChildItem $Dir -Recurse -File
     foreach ($file in $files) {
         $relative = $file.FullName.Substring($Dir.Length).TrimStart('\').Replace('\', '/')
+        $targetPath = if ([string]::IsNullOrWhiteSpace($prefix)) { $relative } else { "$prefix/$relative" }
         $bytes = [System.IO.File]::ReadAllBytes($file.FullName)
         $content = [Convert]::ToBase64String($bytes)
         $bodyObject = @{
-            message = "Update $relative"
+            message = "Update $targetPath"
             content = $content
             branch  = "main"
         }
 
-        $uri = "https://api.github.com/repos/$RepoName/contents/$relative"
+        $uri = "https://api.github.com/repos/$RepoName/contents/$targetPath"
         try {
             $existing = Invoke-RestMethod -Method Get -Uri $uri -Headers $headers
             $bodyObject.sha = $existing.sha
-        } catch {
-        }
+        } catch {}
 
         $body = $bodyObject | ConvertTo-Json
         Invoke-RestMethod -Method Put -Uri $uri -Headers $headers -Body $body -ContentType "application/json" | Out-Null
-        Write-Host "Uploaded $relative"
+        Write-Host "Uploaded $targetPath"
     }
 }
 
@@ -97,6 +125,7 @@ Clear-ProxyEnv
 
 $git = "C:\Program Files\Git\cmd\git.exe"
 $gh = "C:\Program Files\GitHub CLI\gh.exe"
+$RepoSubdir = Normalize-RepoSubdir -Value $RepoSubdir
 
 Require-CommandPath -Path $git -InstallId "Git.Git"
 Require-CommandPath -Path $gh -InstallId "GitHub.cli"
@@ -111,20 +140,26 @@ try {
     & $gh auth login --hostname github.com --web --git-protocol https
 }
 
-Ensure-GitRepo -Dir $SourceDir
 Ensure-RepoExists -RepoName $Repo -VisibilityName $Visibility -Dir $SourceDir
+
+if (-not [string]::IsNullOrWhiteSpace($RepoSubdir)) {
+    Upload-WithApi -Dir $SourceDir -RepoName $Repo -TargetSubdir $RepoSubdir
+    Write-Host "Repository ready: https://github.com/$Repo/tree/main/$RepoSubdir"
+    exit 0
+}
+
+Ensure-GitRepo -Dir $SourceDir
 
 try {
     & $git -C $SourceDir remote remove origin 2>$null
-} catch {
-}
+} catch {}
 & $git -C $SourceDir remote add origin "https://github.com/$Repo.git"
 
 try {
     $token = (& $gh auth token).Trim()
     & $git -C $SourceDir -c credential.helper= -c core.askPass= -c http.https://github.com/.extraheader="AUTHORIZATION: bearer $token" push -u origin main
 } catch {
-    Upload-WithApi -Dir $SourceDir -RepoName $Repo
+    Upload-WithApi -Dir $SourceDir -RepoName $Repo -TargetSubdir ''
 }
 
 Write-Host "Repository ready: https://github.com/$Repo"
