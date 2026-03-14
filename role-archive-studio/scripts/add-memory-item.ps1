@@ -1,27 +1,30 @@
-﻿param(
+param(
     [Parameter(Mandatory = $true)]
     [string]$Text,
     [string]$Source = 'manual',
     [switch]$Pinned,
     [string]$ProfileId,
-    [string]$EventAt
+    [string]$EventAt,
+    [string]$SessionId
 )
 
 $dataRoot = Join-Path $HOME '.codex/role-archive-studio-data'
 $memoriesPath = Join-Path $dataRoot 'memories.json'
 $statePath = Join-Path $dataRoot 'state.json'
+$sessionsPath = Join-Path $dataRoot 'sessions.json'
 
 function Initialize-Store {
     if (-not (Test-Path $dataRoot)) { New-Item -ItemType Directory -Path $dataRoot | Out-Null }
     if (-not (Test-Path $memoriesPath)) { '[]' | Set-Content -Path $memoriesPath -Encoding UTF8 }
     if (-not (Test-Path $statePath)) { '{"activeProfileId":"","lastOpenedAt":"","updatedAt":""}' | Set-Content -Path $statePath -Encoding UTF8 }
+    if (-not (Test-Path $sessionsPath)) { '[]' | Set-Content -Path $sessionsPath -Encoding UTF8 }
 }
 
 function Read-JsonFile {
     param([string]$Path)
     $raw = Get-Content -Raw -Path $Path -Encoding UTF8
     if ([string]::IsNullOrWhiteSpace($raw)) { return $null }
-    $raw | ConvertFrom-Json
+    return ($raw | ConvertFrom-Json)
 }
 
 function Flatten-MemoryItems {
@@ -40,11 +43,19 @@ function Flatten-MemoryItems {
     $result
 }
 
+function Normalize-ObjectArray {
+    param($Items)
+    if ($null -eq $Items) { return @() }
+    if ($Items -is [System.Array]) { return @($Items) }
+    if ($Items.PSObject.Properties.Name -contains 'value') { return @($Items.value) }
+    return @($Items)
+}
+
 Initialize-Store
 $state = Read-JsonFile -Path $statePath
-$resolvedProfileId = if ([string]::IsNullOrWhiteSpace($ProfileId)) { [string]$state.activeProfileId } else { $ProfileId }
-if ([string]::IsNullOrWhiteSpace($resolvedProfileId)) { throw 'No active profile is set, and no -ProfileId was provided.' }
-
+$sessions = @(Normalize-ObjectArray (Read-JsonFile -Path $sessionsPath))
+$resolvedProfileId = if (-not [string]::IsNullOrWhiteSpace($ProfileId)) { $ProfileId } elseif (-not [string]::IsNullOrWhiteSpace($SessionId)) { [string](($sessions | Where-Object { [string]$_.id -eq $SessionId } | Select-Object -First 1).profileId) } else { [string]$state.activeProfileId }
+if ([string]::IsNullOrWhiteSpace($resolvedProfileId)) { throw 'No active profile is set for this scope.' }
 $memories = @(Flatten-MemoryItems -Items (Read-JsonFile -Path $memoriesPath))
 $now = Get-Date
 $entry = [PSCustomObject]@{
