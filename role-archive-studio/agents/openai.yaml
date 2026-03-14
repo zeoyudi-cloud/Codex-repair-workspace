@@ -1,4 +1,4 @@
-﻿version: 1
+version: 1
 interface:
   display_name: 角色存档工坊
   short_description: 本地角色卡、私有记忆库与角色切换入口。
