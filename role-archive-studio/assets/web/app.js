@@ -1,4 +1,4 @@
-﻿const DEFAULT_MEMORY_FOCUS = "只记录稳定偏好、重要已确认事实和关键工作边界；不把角色卡设定、某次具体开发过程或临时测试细节写进长期记忆。";
+const DEFAULT_MEMORY_FOCUS = "只记录稳定偏好、重要已确认事实和关键工作边界；不把角色卡设定、某次具体开发过程或临时测试细节写进长期记忆。";
 
 const TEXT = {
   previewEmpty: "当前激活角色的提示词会显示在这里。",
@@ -131,6 +131,13 @@ function profileById(id) { return state.profiles.find((item) => item.id === id) 
 function selectedProfile() { return profileById(state.selectedId); }
 function activeProfile() { return profileById(state.activeProfileId); }
 function memoriesForProfile(profileId) { return state.memories.filter((item) => item.profileId === profileId).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")); }
+async function loadProfileMemories(profileId) {
+  if (!profileId) return [];
+  const payload = await fetchJson(`/api/profiles/${profileId}/memories`);
+  const items = normalizeCollection(payload.memories);
+  state.memories = state.memories.filter((item) => item.profileId !== profileId).concat(items);
+  return memoriesForProfile(profileId);
+}
 function setView(viewName) { state.currentView = viewName; els.entryView.classList.toggle("is-hidden", viewName !== "entry"); els.selectView.classList.toggle("is-hidden", viewName !== "select"); els.editorView.classList.toggle("is-hidden", viewName !== "editor"); }
 function setStatus(text) { els.saveStatus.textContent = text; }
 function setSettingsStatus(text) { els.settingsStatus.textContent = text; }
@@ -176,11 +183,21 @@ function renderSelectList() {
     fragment.querySelector(".summary-name").textContent = profile.name || TEXT.unnamedRole;
     fragment.querySelector(".summary-personality").textContent = profile.personality || TEXT.noPersonality;
     fragment.querySelector(".summary-copy").textContent = profile.summary || TEXT.summaryFallback;
-    fragment.querySelector(".summary-card").addEventListener("click", () => { state.selectedId = profile.id; fillForm(profile); setStatus(TEXT.editingRole); setView("editor"); render(); });
+    fragment.querySelector(".summary-card").addEventListener("click", async () => { state.selectedId = profile.id; fillForm(profile); setStatus(TEXT.editingRole); setView("editor"); render(); try { await loadProfileMemories(profile.id); } catch (error) { showError(error); } render(); });
     els.profileSummaryList.appendChild(fragment);
   }
 }
-function renderEditor() { const profile = selectedProfile(); els.editorTitle.textContent = profile ? "编辑角色" : "创建新角色"; els.activeName.textContent = profile?.name || TEXT.noActiveRole; els.activeSummary.textContent = profile?.summary || TEXT.chooseRoleFirst; els.promptPreview.textContent = state.activePrompt || buildPromptPreview(profile); }
+function renderEditor() {
+  const profile = selectedProfile();
+  const draft = profile ? normalizeProfile({ ...profile, ...serializeForm() }) : normalizeProfile(serializeForm());
+  const isEditingActive = !!profile && state.activeProfileId === profile.id;
+  els.editorTitle.textContent = profile ? "编辑角色" : "创建新角色";
+  els.activeName.textContent = profile?.name || TEXT.noActiveRole;
+  els.activeSummary.textContent = profile
+    ? (isEditingActive ? "当前显示的是已激活角色的提示词预览。" : "当前显示的是角色草稿预览，保存后可以激活。")
+    : TEXT.chooseRoleFirst;
+  els.promptPreview.textContent = isEditingActive && state.activePrompt ? state.activePrompt : buildPromptPreview(draft);
+}
 function renderMemoryList() {
   const profile = selectedProfile();
   const items = profile ? memoriesForProfile(profile.id) : [];
@@ -226,7 +243,7 @@ async function ensureMemoryFocusForFirstEntry(profile) {
 async function bootstrap() {
   const payload = await fetchJson("/api/bootstrap");
   state.profiles = normalizeCollection(payload.profiles).map(normalizeProfile).filter(Boolean);
-  state.memories = normalizeCollection(payload.memories);
+  state.memories = normalizeCollection(payload.activeMemories || payload.memories);
   state.settings = { ...state.settings, ...(payload.settings || {}) };
   state.activeProfileId = payload.state?.activeProfileId || "";
   state.activePrompt = payload.activePrompt || "";
@@ -254,6 +271,7 @@ async function activateProfile() {
   const payload = await fetchJson("/api/activate", { method: "POST", body: toAsciiSafeJson({ id: profile.id }) });
   state.activeProfileId = profile.id;
   state.activePrompt = payload.prompt || buildPromptPreview(profile);
+  await loadProfileMemories(profile.id);
   setStatus(TEXT.roleActivated);
   render();
 }
@@ -304,10 +322,10 @@ els.activateButton.addEventListener("click", async () => { try { await activateP
 els.copyPromptButton.addEventListener("click", async () => { try { await copyPrompt(); } catch (error) { showError(error); } });
 els.saveMemoryButton.addEventListener("click", async () => { try { await saveMemory(); } catch (error) { showError(error); } });
 els.saveSettingsButton.addEventListener("click", async () => { try { await saveSettings(); } catch (error) { showError(error); } });
-els.personalityPreset.addEventListener("change", () => { if (els.personalityPreset.value) { els.personality.value = els.personalityPreset.value; setStatus(TEXT.editing); } });
-els.voicePreset.addEventListener("change", () => { if (els.voicePreset.value) { els.voice.value = els.voicePreset.value; setStatus(TEXT.editing); } });
-els.personality.addEventListener("input", () => syncPreset(els.personalityPreset, els.personality));
-els.voice.addEventListener("input", () => syncPreset(els.voicePreset, els.voice));
-els.form.addEventListener("input", () => setStatus(TEXT.editing));
+els.personalityPreset.addEventListener("change", () => { if (els.personalityPreset.value) { els.personality.value = els.personalityPreset.value; setStatus(TEXT.editing); render(); } });
+els.voicePreset.addEventListener("change", () => { if (els.voicePreset.value) { els.voice.value = els.voicePreset.value; setStatus(TEXT.editing); render(); } });
+els.personality.addEventListener("input", () => { syncPreset(els.personalityPreset, els.personality); render(); });
+els.voice.addEventListener("input", () => { syncPreset(els.voicePreset, els.voice); render(); });
+els.form.addEventListener("input", () => { setStatus(TEXT.editing); render(); });
 
 bootstrap().catch((error) => { els.promptPreview.textContent = error.message; setStatus(TEXT.loadFailed); });
