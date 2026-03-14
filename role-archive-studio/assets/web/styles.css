@@ -345,7 +345,9 @@ select:focus {
 }
 
 .prompt-box {
-  min-height: 360px;
+  min-height: 320px;
+  max-height: 620px;
+  overflow: auto;
   margin: 18px 0 10px;
   padding: 18px;
   border-radius: 18px;
